@@ -60,10 +60,8 @@ func NewGroupKeeper(storeKey sdk.StoreKey, cdc *codec.Codec) GroupKeeper {
 	})
 	k.groupTable = groupTableBuilder.Build()
 
-	// todo: why pass a primary key generator when object must implement NaturalKeyed (for Save)
-	groupMemberTableBuilder := NewNaturalKeyTableBuilder(GroupMemberTablePrefix, GroupMemberTableSeqPrefix, GroupMemberTableIndexPrefix, storeKey, cdc, &GroupMember{}, func(val interface{}) []byte {
-		return val.(*GroupMember).NaturalKey()
-	})
+	groupMemberTableBuilder := NewNaturalKeyTableBuilder(GroupMemberTablePrefix, GroupMemberTableSeqPrefix, GroupMemberTableIndexPrefix, storeKey, cdc, &GroupMember{})
+
 	k.groupMemberByGroupIndex = NewIndex(groupMemberTableBuilder, GroupMemberByGroupIndexPrefix, func(val interface{}) ([][]byte, error) {
 		group := val.(*GroupMember).Group
 		return [][]byte{group}, nil

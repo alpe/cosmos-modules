@@ -19,11 +19,8 @@ func TestNaturalKeyTablePrefixScan(t *testing.T) {
 		testTableIndexPrefix
 	)
 
-	tb := NewNaturalKeyTableBuilder(testTablePrefix, testTableSeqPrefix, testTableIndexPrefix, storeKey, cdc, &GroupMember{},
-		func(val interface{}) []byte {
-			return val.(*GroupMember).NaturalKey()
-		},
-	).Build()
+	tb := NewNaturalKeyTableBuilder(testTablePrefix, testTableSeqPrefix, testTableIndexPrefix, storeKey, cdc, &GroupMember{}).
+		Build()
 
 	ctx := NewMockContext()
 

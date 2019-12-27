@@ -89,16 +89,13 @@ func (a AutoUInt64Table) Create(ctx HasKVStore, obj interface{}) (uint64, error)
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to serialize %T", obj)
 	}
-	rowID, err := a.sequence.NextVal(ctx)
-	if err != nil {
-		return 0, errors.Wrap(err, "can not fetch next sequence value")
-	}
+	rowID := a.sequence.NextVal(ctx)
 
 	// todo: store does not return an error that we can handle or return
 	key := EncodeSequence(rowID)
 	store.Set(key, v)
 	for i, itc := range a.afterSave {
-		if err := itc(ctx, rowID, key, obj, nil); err != nil {
+		if err := itc(ctx, rowID, obj, nil); err != nil {
 			return 0, errors.Wrapf(err, "interceptor %d failed", i)
 		}
 	}
@@ -113,25 +110,19 @@ func (a AutoUInt64Table) Save(ctx HasKVStore, rowID uint64, newValue interface{}
 
 	store := prefix.NewStore(ctx.KVStore(a.storeKey), []byte{a.prefix})
 	var oldValue = reflect.New(a.model).Interface()
-	it, err := a.Get(ctx, rowID)
+	_, err := a.GetOne(ctx, rowID, oldValue)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "load old value")
 	}
-	_, err = it.LoadNext(oldValue)
-	if err != nil {
-		return err
-	}
-
-	v, err := a.cdc.MarshalBinaryBare(newValue)
+	newValueEncoded, err := a.cdc.MarshalBinaryBare(newValue)
 	if err != nil {
 		return errors.Wrapf(err, "failed to serialize %T", newValue)
 	}
 	// todo: store does not return an error that we can handle or return
 	key := EncodeSequence(rowID)
-	store.Set(key, v)
-	// todo: impl interceptor calls
+	store.Set(key, newValueEncoded)
 	for i, itc := range a.afterSave {
-		if err := itc(ctx, rowID, key, newValue, oldValue); err != nil {
+		if err := itc(ctx, rowID, newValue, oldValue); err != nil {
 			return errors.Wrapf(err, "interceptor %d failed", i)
 		}
 	}
@@ -143,38 +134,28 @@ func (a AutoUInt64Table) Delete(ctx HasKVStore, rowID uint64) error {
 	key := EncodeSequence(rowID)
 
 	var oldValue = reflect.New(a.model).Interface()
-	it, err := a.Get(ctx, rowID)
+	_, err := a.GetOne(ctx, rowID, oldValue)
 	if err != nil {
-		return err
-	}
-	_, err = it.LoadNext(oldValue)
-	if err != nil {
-		return err
+		return errors.Wrap(err, "load old value")
 	}
 	store.Delete(key)
 
 	for i, itc := range a.afterDelete {
-		if err := itc(ctx, rowID, key, oldValue); err != nil {
+		if err := itc(ctx, rowID, oldValue); err != nil {
 			return errors.Wrapf(err, "delete interceptor %d failed", i)
 		}
 	}
 	return nil
 }
 
-// todo: there is no error result as store would panic
-func (a AutoUInt64Table) Has(ctx HasKVStore, id uint64) (bool, error) {
+func (a AutoUInt64Table) Has(ctx HasKVStore, id uint64) bool {
 	store := prefix.NewStore(ctx.KVStore(a.storeKey), []byte{a.prefix})
-	return store.Has(EncodeSequence(id)), nil
+	return store.Has(EncodeSequence(id))
 }
 
-func (a AutoUInt64Table) Get(ctx HasKVStore, rowID uint64) (Iterator, error) {
-	store := prefix.NewStore(ctx.KVStore(a.storeKey), []byte{a.prefix})
-	key := EncodeSequence(rowID)
-	val := store.Get(key)
-	if val == nil {
-		return nil, ErrNotFound // todo: discuss how to handle this scenario if we drop error return parameter
-	}
-	return NewSingleValueIterator(a.cdc, key, val), nil // todo: SingleValueIterator is only used to satisfy the interface
+func (a AutoUInt64Table) GetOne(ctx HasKVStore, rowID uint64, dest interface{}) ([]byte, error) {
+	x := NewTypeSafeRowGetter(a.storeKey, a.prefix, a.cdc, a.model)
+	return x(ctx, rowID, dest)
 }
 
 // end is not included

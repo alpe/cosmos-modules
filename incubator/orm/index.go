@@ -38,15 +38,12 @@ func NewIndex(builder TableBuilder, prefix byte, indexer IndexerFunc) *MultiKeyI
 	return &idx
 }
 
-// todo: store panics on errors. why return an error here?
-func (i MultiKeyIndex) Has(ctx HasKVStore, key []byte) (bool, error) {
-	//todo: does not work: return store.Has(key), nil
+func (i MultiKeyIndex) Has(ctx HasKVStore, key []byte) bool {
 	// can only be answered by a prefix scan. see makeIndexPrefixScanKey
-
 	store := prefix.NewStore(ctx.KVStore(i.storeKey), []byte{i.prefix})
 	it := store.Iterator(makeIndexPrefixScanKey(key, 0), makeIndexPrefixScanKey(key, math.MaxUint64))
 	defer it.Close()
-	return it.Valid(), nil
+	return it.Valid()
 }
 
 func (i MultiKeyIndex) Get(ctx HasKVStore, key []byte) (Iterator, error) {
@@ -83,8 +80,7 @@ func (i MultiKeyIndex) ReversePrefixScan(ctx HasKVStore, start []byte, end []byt
 	return indexIterator{ctx: ctx, it: it, rowGetter: i.rowGetter}, nil
 }
 
-func (i MultiKeyIndex) onSave(ctx HasKVStore, rowID uint64, key []byte, newValue, oldValue interface{}) error {
-	// todo: this is the on create indexer, for update the old value may has to be removed
+func (i MultiKeyIndex) onSave(ctx HasKVStore, rowID uint64, newValue, oldValue interface{}) error {
 	store := prefix.NewStore(ctx.KVStore(i.storeKey), []byte{i.prefix})
 	if oldValue == nil {
 		return i.indexer.OnCreate(store, rowID, newValue)
@@ -93,7 +89,7 @@ func (i MultiKeyIndex) onSave(ctx HasKVStore, rowID uint64, key []byte, newValue
 
 }
 
-func (i MultiKeyIndex) onDelete(ctx HasKVStore, rowId uint64, key []byte, oldValue interface{}) error {
+func (i MultiKeyIndex) onDelete(ctx HasKVStore, rowId uint64, oldValue interface{}) error {
 	store := prefix.NewStore(ctx.KVStore(i.storeKey), []byte{i.prefix})
 	return i.indexer.OnDelete(store, rowId, oldValue)
 }

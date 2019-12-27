@@ -52,26 +52,25 @@ func TestKeeperEndToEndWithAutoUInt64Table(t *testing.T) {
 	rowID, err := k.groupTable.Create(ctx, &g)
 	require.NoError(t, err)
 	// then we should find it
-	exists, err := k.groupTable.Has(ctx, rowID)
-	require.NoError(t, err)
+	exists := k.groupTable.Has(ctx, rowID)
 	require.True(t, exists)
 
 	// and load it
-	it, err := k.groupTable.Get(ctx, rowID)
+	var loaded GroupMetadata
+
+	binKey, err := k.groupTable.GetOne(ctx, rowID, &loaded)
 	require.NoError(t, err)
 
-	binKey, loaded := first(t, it)
 	assert.Equal(t, rowID, binary.BigEndian.Uint64(binKey))
 	assert.Equal(t, "my test", loaded.Description)
 	assert.Equal(t, sdk.AccAddress([]byte("admin-address")), loaded.Admin)
 
 	// and exists in MultiKeyIndex
-	exists, err = k.groupByAdminIndex.Has(ctx, []byte("admin-address"))
-	require.NoError(t, err)
+	exists = k.groupByAdminIndex.Has(ctx, []byte("admin-address"))
 	require.True(t, exists)
 
 	// and when loaded
-	it, err = k.groupByAdminIndex.Get(ctx, []byte("admin-address"))
+	it, err := k.groupByAdminIndex.Get(ctx, []byte("admin-address"))
 	require.NoError(t, err)
 
 	// then
@@ -85,12 +84,10 @@ func TestKeeperEndToEndWithAutoUInt64Table(t *testing.T) {
 	require.NoError(t, err)
 
 	// then indexes are updated, too
-	exists, err = k.groupByAdminIndex.Has(ctx, []byte("new-admin-address"))
-	require.NoError(t, err)
+	exists = k.groupByAdminIndex.Has(ctx, []byte("new-admin-address"))
 	require.True(t, exists)
 
-	exists, err = k.groupByAdminIndex.Has(ctx, []byte("admin-address"))
-	require.NoError(t, err)
+	exists = k.groupByAdminIndex.Has(ctx, []byte("admin-address"))
 	require.False(t, exists)
 
 	// when deleted
@@ -98,13 +95,11 @@ func TestKeeperEndToEndWithAutoUInt64Table(t *testing.T) {
 	require.NoError(t, err)
 
 	// then removed from primary MultiKeyIndex
-	exists, err = k.groupTable.Has(ctx, rowID)
-	require.NoError(t, err)
+	exists = k.groupTable.Has(ctx, rowID)
 	require.False(t, exists)
 
 	// and also removed from secondary MultiKeyIndex
-	exists, err = k.groupByAdminIndex.Has(ctx, []byte("new-admin-address"))
-	require.NoError(t, err)
+	exists = k.groupByAdminIndex.Has(ctx, []byte("new-admin-address"))
 	require.False(t, exists)
 }
 
@@ -134,14 +129,11 @@ func TestKeeperEndToEndWithNaturalKeyTable(t *testing.T) {
 
 	// then we should find it by natural key
 	naturalKey := m.NaturalKey()
-	exists, _ := k.groupMemberTable.Has(ctx, naturalKey)
+	exists := k.groupMemberTable.Has(ctx, naturalKey)
 	require.True(t, exists)
 	// and load it by natural key
-	it, err := k.groupMemberTable.Get(ctx, naturalKey)
-	require.NoError(t, err)
-
 	var loaded GroupMember
-	rowID, err := First(it, &loaded)
+	rowID, err := k.groupMemberTable.GetOne(ctx, naturalKey, &loaded)
 	require.NoError(t, err)
 
 	// then values should match expectations
@@ -149,12 +141,11 @@ func TestKeeperEndToEndWithNaturalKeyTable(t *testing.T) {
 	require.Equal(t, m, loaded)
 
 	// and then the data should exists in MultiKeyIndex
-	exists, err = k.groupMemberByGroupIndex.Has(ctx, EncodeSequence(groupRowID))
-	require.NoError(t, err)
+	exists = k.groupMemberByGroupIndex.Has(ctx, EncodeSequence(groupRowID))
 	require.True(t, exists)
 
 	// and when loaded from MultiKeyIndex
-	it, err = k.groupMemberByGroupIndex.Get(ctx, EncodeSequence(groupRowID))
+	it, err := k.groupMemberByGroupIndex.Get(ctx, EncodeSequence(groupRowID))
 	require.NoError(t, err)
 
 	// then values should match as before
@@ -193,12 +184,11 @@ func TestKeeperEndToEndWithNaturalKeyTable(t *testing.T) {
 	require.NoError(t, err)
 
 	// then it is removed from natural key MultiKeyIndex
-	exists, err = k.groupMemberTable.Has(ctx, naturalKey)
-	require.NoError(t, err)
+	exists = k.groupMemberTable.Has(ctx, naturalKey)
 	require.False(t, exists)
 
 	// and removed from secondary MultiKeyIndex
-	exists, _ = k.groupMemberByGroupIndex.Has(ctx, EncodeSequence(groupRowID))
+	exists = k.groupMemberByGroupIndex.Has(ctx, EncodeSequence(groupRowID))
 	require.False(t, exists)
 }
 

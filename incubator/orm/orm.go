@@ -30,7 +30,7 @@ type HasKVStore interface {
 // so that the row NaturalKey is allows a fixed with 8 byte integer. This allows the MultiKeyIndex key bytes to be
 // variable length and scanned iteratively. The
 type Index interface {
-	Has(ctx HasKVStore, key []byte) (bool, error)
+	Has(ctx HasKVStore, key []byte) bool
 	Get(ctx HasKVStore, key []byte) (Iterator, error)
 	PrefixScan(ctx HasKVStore, start []byte, end []byte) (Iterator, error)
 	ReversePrefixScan(ctx HasKVStore, start []byte, end []byte) (Iterator, error)
@@ -50,10 +50,10 @@ type Iterator interface {
 type RowGetter func(ctx HasKVStore, rowId uint64, dest interface{}) (key []byte, err error)
 
 // AfterSaveInterceptor defines a callback function to be called on Create + Update.
-type AfterSaveInterceptor = func(ctx HasKVStore, rowId uint64, key []byte, newValue, oldValue interface{}) error
+type AfterSaveInterceptor = func(ctx HasKVStore, rowId uint64, newValue, oldValue interface{}) error
 
 // AfterDeleteInterceptor defines a callback function to be called on Delete operations.
-type AfterDeleteInterceptor = func(ctx HasKVStore, rowId uint64, key []byte, value interface{}) error
+type AfterDeleteInterceptor = func(ctx HasKVStore, rowId uint64, value interface{}) error
 
 // TableBuilder are used to setup new table types.
 // This interface provides a set of functions that can be called by indexes.
@@ -72,7 +72,6 @@ func NewTypeSafeRowGetter(storeKey sdk.StoreKey, prefixKey byte, cdc *codec.Code
 		store := prefix.NewStore(ctx.KVStore(storeKey), []byte{prefixKey})
 		key := EncodeSequence(rowId)
 		val := store.Get(key)
-		// todo: how to handle not found?
 		if val == nil {
 			return nil, ErrNotFound // todo: discuss how to handle this scenario if we drop error return parameter
 		}

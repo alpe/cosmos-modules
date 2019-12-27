@@ -24,22 +24,20 @@ func NewSequence(storeKey sdk.StoreKey, prefix byte) *Sequence {
 }
 
 // NextVal increments the counter by one and returns the value.
-func (s Sequence) NextVal(ctx HasKVStore) (uint64, error) {
+func (s Sequence) NextVal(ctx HasKVStore) uint64 {
 	store := prefix.NewStore(ctx.KVStore(s.storeKey), []byte{s.prefix})
-	// TODO: store does not return an error. inconsistent method signature above
 	v := store.Get(sequenceStorageKey)
 	seq := DecodeSequence(v)
 	seq += 1
 	store.Set(sequenceStorageKey, EncodeSequence(seq))
-	return seq, nil
+	return seq
 }
 
 // CurVal returns the last value used. 0 if none.
-func (s Sequence) CurVal(ctx HasKVStore) (uint64, error) {
+func (s Sequence) CurVal(ctx HasKVStore) uint64 {
 	store := prefix.NewStore(ctx.KVStore(s.storeKey), []byte{s.prefix})
-	// TODO: store does not return an error. inconsistent method signature above
 	v := store.Get(sequenceStorageKey)
-	return DecodeSequence(v), nil
+	return DecodeSequence(v)
 }
 
 // DecodeSequence converts the binary representation into an Uint64 value.
