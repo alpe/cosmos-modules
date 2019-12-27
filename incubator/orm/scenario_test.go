@@ -65,7 +65,7 @@ func TestKeeperEndToEndWithAutoUInt64Table(t *testing.T) {
 	assert.Equal(t, "my test", loaded.Description)
 	assert.Equal(t, sdk.AccAddress([]byte("admin-address")), loaded.Admin)
 
-	// and exists in index
+	// and exists in MultiKeyIndex
 	exists, err = k.groupByAdminIndex.Has(ctx, []byte("admin-address"))
 	require.NoError(t, err)
 	require.True(t, exists)
@@ -97,12 +97,12 @@ func TestKeeperEndToEndWithAutoUInt64Table(t *testing.T) {
 	err = k.groupTable.Delete(ctx, rowID)
 	require.NoError(t, err)
 
-	// then removed from primary index
+	// then removed from primary MultiKeyIndex
 	exists, err = k.groupTable.Has(ctx, rowID)
 	require.NoError(t, err)
 	require.False(t, exists)
 
-	// and also removed from secondary index
+	// and also removed from secondary MultiKeyIndex
 	exists, err = k.groupByAdminIndex.Has(ctx, []byte("new-admin-address"))
 	require.NoError(t, err)
 	require.False(t, exists)
@@ -133,7 +133,7 @@ func TestKeeperEndToEndWithNaturalKeyTable(t *testing.T) {
 	require.NoError(t, err)
 
 	// then we should find it by natural key
-	naturalKey := m.ID()
+	naturalKey := m.NaturalKey()
 	exists, _ := k.groupMemberTable.Has(ctx, naturalKey)
 	require.True(t, exists)
 	// and load it by natural key
@@ -148,12 +148,12 @@ func TestKeeperEndToEndWithNaturalKeyTable(t *testing.T) {
 	require.Equal(t, EncodeSequence(1), rowID)
 	require.Equal(t, m, loaded)
 
-	// and then the data should exists in index
+	// and then the data should exists in MultiKeyIndex
 	exists, err = k.groupMemberByGroupIndex.Has(ctx, EncodeSequence(groupRowID))
 	require.NoError(t, err)
 	require.True(t, exists)
 
-	// and when loaded from index
+	// and when loaded from MultiKeyIndex
 	it, err = k.groupMemberByGroupIndex.Get(ctx, EncodeSequence(groupRowID))
 	require.NoError(t, err)
 
@@ -192,12 +192,12 @@ func TestKeeperEndToEndWithNaturalKeyTable(t *testing.T) {
 	err = k.groupMemberTable.Delete(ctx, m)
 	require.NoError(t, err)
 
-	// then it is removed from natural key index
+	// then it is removed from natural key MultiKeyIndex
 	exists, err = k.groupMemberTable.Has(ctx, naturalKey)
 	require.NoError(t, err)
 	require.False(t, exists)
 
-	// and removed from secondary index
+	// and removed from secondary MultiKeyIndex
 	exists, _ = k.groupMemberByGroupIndex.Has(ctx, EncodeSequence(groupRowID))
 	require.False(t, exists)
 }

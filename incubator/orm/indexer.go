@@ -7,10 +7,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// IndexerFunc creates one or multiple index keys for the source object.
+// IndexerFunc creates one or multiple MultiKeyIndex keys for the source object.
 type IndexerFunc func(value interface{}) ([][]byte, error)
 
-// Indexer manages the persistence for an index based on searchable keys and operations.
+// Indexer manages the persistence for an MultiKeyIndex based on searchable keys and operations.
 type Indexer struct {
 	indexerFunc IndexerFunc
 	addPolicy   func(store sdk.KVStore, secondaryIndexKey []byte, rowId uint64) error

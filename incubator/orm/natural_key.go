@@ -21,31 +21,33 @@ func NewNaturalKeyTableBuilder(prefixData, prefixSeq, prefixIndex byte, key sdk.
 	})
 	return &naturalKeyTableBuilder{
 		naturalKeyIndex:        idx,
-		autoUInt64TableBuilder: builder,
+		AutoUInt64TableBuilder: builder,
 	}
 }
 
 type naturalKeyTableBuilder struct {
-	*autoUInt64TableBuilder
-	naturalKeyIndex RowIDAwareIndex
+	*AutoUInt64TableBuilder
+	naturalKeyIndex *UniqueIndex
 }
 
-func (a naturalKeyTableBuilder) Build() naturalKeyTable {
-	return naturalKeyTable{
-		autoTable:       a.autoUInt64TableBuilder.Build(),
+func (a naturalKeyTableBuilder) Build() NaturalKeyTable {
+	return NaturalKeyTable{
+		autoTable:       a.AutoUInt64TableBuilder.Build(),
 		naturalKeyIndex: a.naturalKeyIndex,
 	}
 }
 
-var _ NaturalKeyTable = naturalKeyTable{}
-
-type naturalKeyTable struct {
-	getPrimaryKey   naturalKeyer
-	autoTable       autoUInt64Table
-	naturalKeyIndex RowIDAwareIndex
+type NaturalKeyed interface {
+	// NaturalKey return immutable and serialized natural key of this object
+	NaturalKey() []byte
 }
 
-func (a naturalKeyTable) GetOne(ctx HasKVStore, primKey []byte, dest interface{}) ([]byte, error) {
+type NaturalKeyTable struct {
+	autoTable       AutoUInt64Table
+	naturalKeyIndex *UniqueIndex
+}
+
+func (a NaturalKeyTable) GetOne(ctx HasKVStore, primKey []byte, dest interface{}) ([]byte, error) {
 	it, err := a.Get(ctx, primKey)
 	if err != nil {
 		return nil, err
@@ -53,21 +55,21 @@ func (a naturalKeyTable) GetOne(ctx HasKVStore, primKey []byte, dest interface{}
 	return First(it, dest)
 }
 
-func (a naturalKeyTable) Create(ctx HasKVStore, obj HasID) error {
+func (a NaturalKeyTable) Create(ctx HasKVStore, obj NaturalKeyed) error {
 	_, err := a.autoTable.Create(ctx, obj)
 	return err
 }
 
-func (a naturalKeyTable) Save(ctx HasKVStore, newValue HasID) error {
-	rowID, err := a.naturalKeyIndex.RowID(ctx, newValue.ID())
+func (a NaturalKeyTable) Save(ctx HasKVStore, newValue NaturalKeyed) error {
+	rowID, err := a.naturalKeyIndex.RowID(ctx, newValue.NaturalKey())
 	if err != nil {
 		return err
 	}
 	return a.autoTable.Save(ctx, rowID, newValue)
 }
 
-func (a naturalKeyTable) Delete(ctx HasKVStore, obj HasID) error {
-	rowID, err := a.naturalKeyIndex.RowID(ctx, obj.ID())
+func (a NaturalKeyTable) Delete(ctx HasKVStore, obj NaturalKeyed) error {
+	rowID, err := a.naturalKeyIndex.RowID(ctx, obj.NaturalKey())
 	if err != nil {
 		return err
 	}
@@ -75,7 +77,7 @@ func (a naturalKeyTable) Delete(ctx HasKVStore, obj HasID) error {
 }
 
 // todo: there is no error result as store would panic
-func (a naturalKeyTable) Has(ctx HasKVStore, primKey []byte) (bool, error) {
+func (a NaturalKeyTable) Has(ctx HasKVStore, primKey []byte) (bool, error) {
 	rowID, err := a.naturalKeyIndex.RowID(ctx, primKey)
 	if err != nil {
 		if err == ErrNotFound {
@@ -86,7 +88,7 @@ func (a naturalKeyTable) Has(ctx HasKVStore, primKey []byte) (bool, error) {
 	return a.autoTable.Has(ctx, rowID)
 }
 
-func (a naturalKeyTable) Get(ctx HasKVStore, primKey []byte) (Iterator, error) {
+func (a NaturalKeyTable) Get(ctx HasKVStore, primKey []byte) (Iterator, error) {
 	rowID, err := a.naturalKeyIndex.RowID(ctx, primKey)
 	if err != nil {
 		return nil, err
@@ -94,10 +96,10 @@ func (a naturalKeyTable) Get(ctx HasKVStore, primKey []byte) (Iterator, error) {
 	return a.autoTable.Get(ctx, rowID)
 }
 
-func (a naturalKeyTable) PrefixScan(ctx HasKVStore, start, end []byte) (Iterator, error) {
+func (a NaturalKeyTable) PrefixScan(ctx HasKVStore, start, end []byte) (Iterator, error) {
 	return a.naturalKeyIndex.PrefixScan(ctx, start, end)
 }
 
-func (a naturalKeyTable) ReversePrefixScan(ctx HasKVStore, start, end []byte) (Iterator, error) {
+func (a NaturalKeyTable) ReversePrefixScan(ctx HasKVStore, start, end []byte) (Iterator, error) {
 	return a.naturalKeyIndex.ReversePrefixScan(ctx, start, end)
 }
