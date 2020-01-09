@@ -10,7 +10,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-var _ TableBuilder = &AutoUInt64TableBuilder{}
+var _ Indexable = &AutoUInt64TableBuilder{}
 
 func NewAutoUInt64TableBuilder(prefixData byte, prefixSeq byte, key sdk.StoreKey, cdc *codec.Codec, model interface{}) *AutoUInt64TableBuilder {
 	if prefixData == prefixSeq {
@@ -91,7 +91,6 @@ func (a AutoUInt64Table) Create(ctx HasKVStore, obj interface{}) (uint64, error)
 	}
 	rowID := a.sequence.NextVal(ctx)
 
-	// todo: store does not return an error that we can handle or return
 	key := EncodeSequence(rowID)
 	store.Set(key, v)
 	for i, itc := range a.afterSave {
@@ -118,7 +117,7 @@ func (a AutoUInt64Table) Save(ctx HasKVStore, rowID uint64, newValue interface{}
 	if err != nil {
 		return errors.Wrapf(err, "failed to serialize %T", newValue)
 	}
-	// todo: store does not return an error that we can handle or return
+
 	key := EncodeSequence(rowID)
 	store.Set(key, newValueEncoded)
 	for i, itc := range a.afterSave {

@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/types/errors"
 )
 
-var _ TableBuilder = &naturalKeyTableBuilder{}
+var _ Indexable = &naturalKeyTableBuilder{}
 
 func NewNaturalKeyTableBuilder(prefixData, prefixSeq, prefixIndex byte, key sdk.StoreKey, cdc *codec.Codec, model NaturalKeyed) *naturalKeyTableBuilder {
 	if prefixIndex == prefixData || prefixData == prefixSeq {
@@ -15,12 +15,12 @@ func NewNaturalKeyTableBuilder(prefixData, prefixSeq, prefixIndex byte, key sdk.
 
 	builder := NewAutoUInt64TableBuilder(prefixData, prefixSeq, key, cdc, model)
 
-	idx := NewUniqueIndex(builder, prefixIndex, func(value interface{}) (bytes [][]byte, err error) {
+	idx := NewUniqueIndex(builder, prefixIndex, func(value interface{}) ([]byte, error) {
 		obj, ok := value.(NaturalKeyed)
 		if !ok {
 			return nil, errors.Wrapf(ErrType, "%T", value)
 		}
-		return [][]byte{obj.NaturalKey()}, nil
+		return obj.NaturalKey(), nil
 	})
 	return &naturalKeyTableBuilder{
 		naturalKeyIndex:        idx,
@@ -40,11 +40,14 @@ func (a naturalKeyTableBuilder) Build() NaturalKeyTable {
 	}
 }
 
+// NaturalKeyed defines an object type that is aware of it's immutable natural key.
 type NaturalKeyed interface {
-	// NaturalKey return immutable and serialized natural key of this object
+	// NaturalKey returns the immutable and serialized natural key of this object
 	NaturalKey() []byte
 }
 
+// NaturalKeyTable provides simpler object style orm methods without passing database rowIDs.
+// Entries are persisted and loaded with a reference to their natural key.
 type NaturalKeyTable struct {
 	autoTable       AutoUInt64Table
 	naturalKeyIndex *UniqueIndex

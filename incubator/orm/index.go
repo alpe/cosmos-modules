@@ -18,7 +18,8 @@ type indexer interface {
 	OnUpdate(store sdk.KVStore, rowId uint64, newValue, oldValue interface{}) error
 }
 
-// MultiKeyIndex
+// MultiKeyIndex is an index where multiple entries can point to the same underlying object as opposite to a unique index
+// where only one entry is allowed.
 type MultiKeyIndex struct {
 	storeKey  sdk.StoreKey
 	prefix    byte
@@ -26,12 +27,12 @@ type MultiKeyIndex struct {
 	indexer   indexer
 }
 
-func NewIndex(builder TableBuilder, prefix byte, indexer IndexerFunc) *MultiKeyIndex {
+func NewIndex(builder Indexable, prefix byte, indexer IndexerFunc) *MultiKeyIndex {
 	idx := MultiKeyIndex{
 		storeKey:  builder.StoreKey(),
 		prefix:    prefix,
 		rowGetter: builder.RowGetter(),
-		indexer:   NewIndexer(indexer, false),
+		indexer:   NewIndexer(indexer),
 	}
 	builder.AddAfterSaveInterceptor(idx.onSave)
 	builder.AddAfterDeleteInterceptor(idx.onDelete)
@@ -98,13 +99,13 @@ type UniqueIndex struct {
 	MultiKeyIndex
 }
 
-func NewUniqueIndex(builder TableBuilder, prefix byte, indexerFunc IndexerFunc) *UniqueIndex {
+func NewUniqueIndex(builder Indexable, prefix byte, uniqueIndexerFunc UniqueIndexerFunc) *UniqueIndex {
 	idx := UniqueIndex{
 		MultiKeyIndex: MultiKeyIndex{
 			storeKey:  builder.StoreKey(),
 			prefix:    prefix,
 			rowGetter: builder.RowGetter(),
-			indexer:   NewIndexer(indexerFunc, true),
+			indexer:   NewUniqueIndexer(uniqueIndexerFunc),
 		},
 	}
 	builder.AddAfterSaveInterceptor(idx.onSave)

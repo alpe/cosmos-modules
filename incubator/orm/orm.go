@@ -1,3 +1,6 @@
+/*
+Package orm is a convenient object to data store mapper.
+*/
 package orm
 
 import (
@@ -22,6 +25,7 @@ var (
 	ErrArgument         = errors.Register(ormCodespace, 112, "invalid argument")
 )
 
+// HasKVStore is a subset of the cosmos-sdk context defined for loose coupling and simpler test setups.
 type HasKVStore interface {
 	KVStore(key sdk.StoreKey) sdk.KVStore
 }
@@ -39,30 +43,30 @@ type Index interface {
 // Iterator allows iteration through a sequence of key value pairs
 type Iterator interface {
 	// LoadNext loads the next value in the sequence into the pointer passed as dest and returns the key. If there
-	// are no more items an error is returned
+	// are no more items the ErrIteratorDone error is returned
 	// The key is the rowID and not any MultiKeyIndex key.
 	LoadNext(dest interface{}) (key []byte, err error)
 	// Close releases the iterator and should be called at the end of iteration
 	io.Closer
 }
 
-// RowGetter loads a persistent object by row ID into the destination object. The key returned is the serialized row ID.
-type RowGetter func(ctx HasKVStore, rowId uint64, dest interface{}) (key []byte, err error)
-
-// AfterSaveInterceptor defines a callback function to be called on Create + Update.
-type AfterSaveInterceptor = func(ctx HasKVStore, rowId uint64, newValue, oldValue interface{}) error
-
-// AfterDeleteInterceptor defines a callback function to be called on Delete operations.
-type AfterDeleteInterceptor = func(ctx HasKVStore, rowId uint64, value interface{}) error
-
-// TableBuilder are used to setup new table types.
-// This interface provides a set of functions that can be called by indexes.
-type TableBuilder interface {
+// Indexable types are used to setup new tables.
+// This interface provides a set of functions that can be called by indexes to register and interact with the tables.
+type Indexable interface {
 	StoreKey() sdk.StoreKey
-	RowGetter() RowGetter
 	AddAfterSaveInterceptor(interceptor AfterSaveInterceptor)
 	AddAfterDeleteInterceptor(interceptor AfterDeleteInterceptor)
+	RowGetter() RowGetter
 }
+
+// AfterSaveInterceptor defines a callback function to be called on Create + Update.
+type AfterSaveInterceptor func(ctx HasKVStore, rowId uint64, newValue, oldValue interface{}) error
+
+// AfterDeleteInterceptor defines a callback function to be called on Delete operations.
+type AfterDeleteInterceptor func(ctx HasKVStore, rowId uint64, value interface{}) error
+
+// RowGetter loads a persistent object by row ID into the destination object. The key returned is the serialized row ID.
+type RowGetter func(ctx HasKVStore, rowId uint64, dest interface{}) (key []byte, err error)
 
 func NewTypeSafeRowGetter(storeKey sdk.StoreKey, prefixKey byte, cdc *codec.Codec, model reflect.Type) RowGetter {
 	return func(ctx HasKVStore, rowId uint64, dest interface{}) ([]byte, error) {
